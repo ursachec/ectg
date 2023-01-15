@@ -81,7 +81,7 @@ func main() {
 	var canaryHostname string
 	flag.StringVar(&canaryHostname, "hostname", "", "DNS hostname to ping on events")
 	var pathNames string
-	flag.StringVar(&pathNames, "paths", "/usr/bin/whoami,/usr/bin/hostname", "CSV; match `execve` syscalls with these pathnames as a first arg")
+	flag.StringVar(&pathNames, "paths", "/usr/bin/id,/usr/bin/whoami,/usr/bin/hostname", "CSV; match `execve` syscalls with these pathnames as a first arg")
 	flag.Parse()
 
 	if len(canaryHostname) == 0 {

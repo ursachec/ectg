@@ -12,13 +12,13 @@ CLI tool which triggers DNS based Canarytokens when `execve` syscalls are invoke
 
 ### Build & Run
 
-First, generate a DNS Canarytoken at `https://canarytokens.org/generate`.
+First, generate a DNS Canarytoken at https://canarytokens.org/generate.
 
 Afterwards:
 ```shell
 $ make generate
 $ go build
-$ sudo ./ectg -hostname 6j4n7c2flo71qa0r9g0simq2r.canarytokens.com -paths /usr/bin/whoami,/usr/bin/hostname
+$ sudo ./ectg -hostname 6j4n7c2flo71qa0r9g0simq2r.canarytokens.com -paths /usr/bin/id,/usr/bin/whoami,/usr/bin/hostname
 ```
 
 With `ectg` running, execute `whoami` in a separate shell session — the Canarytoken will trigger and an email will be sent to the address you entered when creating the token.
@@ -28,3 +28,6 @@ With `ectg` running, execute `whoami` in a separate shell session — the Canary
 - https://github.com/cilium/ebpf
 - https://blog.thinkst.com/2020/06/canarytokens-org-quick-free-detection-for-the-masses-2.html
 - https://ebpf.io/
+- https://github.com/thinkst/canaryfy
+- https://blog.thinkst.com/2022/08/canaries-as-network-motion-sensors.html
+- https://github.com/redcanaryco/redcanary-ebpf-sensor
