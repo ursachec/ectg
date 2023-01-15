@@ -2,17 +2,21 @@ package main
 
 import (
 	"bytes"
+	"encoding/base32"
 	"encoding/binary"
 	"errors"
 	"flag"
 	"fmt"
 	"golang.org/x/sys/unix"
 	"log"
+	"math/rand"
 	"net"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/cilium/ebpf/link"
 	"github.com/cilium/ebpf/perf"
@@ -28,11 +32,53 @@ type bpfEvent struct {
 	Pathname [MaxPathnameLength]uint8
 }
 
+// add custom data to token using the format specified at:
+// https://docs.canarytokens.org/guide/dns-token.html#encoding-additional-information-in-your-token
+// ```
+// Base32 encode your data, and remove any padding '=' characters
+// Insert periods (.) after every 63-bytes
+// Append the magic string '.G'+<2-random-digits>+'.' (e.g. '.G12.' or '.G83.')
+// ```
+func hostnameWithPayload(hostname string, payload string, r *rand.Rand) string {
+	if len(payload) == 0 {
+		return hostname
+	}
+	data := []byte(payload)
+	dst := make([]byte, base32.StdEncoding.EncodedLen(len(data)))
+	base32.StdEncoding.Encode(dst, data)
+	trimmed := strings.TrimRight(string(dst), "=")
+
+	chunkSize := 63
+	var sb strings.Builder
+	for i, r := range []rune(trimmed) {
+		sb.WriteRune(r)
+		if i != 0 && i != 1 && (i+1)%chunkSize == 0 {
+			sb.WriteRune('.')
+		}
+	}
+	encodedPayloadWithSeparator := sb.String()
+
+	magicString := fmt.Sprintf(".G%d%d", r.Intn(10), r.Intn(10))
+	hostNameWithMagicString := strings.Join([]string{magicString, hostname}, ".")
+
+	maxHostnameLength := 253
+	maxPayloadSize := maxHostnameLength - len(hostNameWithMagicString)
+	if len(encodedPayloadWithSeparator) <= maxPayloadSize {
+		return encodedPayloadWithSeparator + hostNameWithMagicString
+	}
+	return encodedPayloadWithSeparator[0:maxPayloadSize] + hostNameWithMagicString
+}
+
 // send DNS requests
 func consumer(canaryHostname string, link <-chan string, done chan<- bool) {
+	rs := rand.NewSource(time.Now().UnixNano())
+	r := rand.New(rs)
+
 	for pathname := range link {
 		log.Printf("triggering DNS token for: %s", pathname)
-		_, err := net.LookupIP(canaryHostname)
+		base := filepath.Base(pathname)
+		hostnameWithData := hostnameWithPayload(canaryHostname, base, r)
+		_, err := net.LookupIP(hostnameWithData)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "DNS request failed: %v\n", err)
 		}
